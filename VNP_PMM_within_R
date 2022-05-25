@@ -1,0 +1,93 @@
+# this code below creates the Bayesian model and stores it in your working directory
+# the JAGS program looks for the filename "BayesPM.bug" in the working directory
+# then combines the model with the data to compute posterior summaries 
+
+sink("BayesPM.bug")
+cat("
+    model {
+      for (i in 1:N) {
+        response[i] ~ dbern(mur[i])
+        outcome[i] ~ dbern(muy[i])
+        
+        mur[i] = 1 - (1 + exp(alpha0 + alphaz * z[i]))^(-1)
+        
+        prz0[i] = 1 - (1 + exp(beta00 + betaz0*z[i]))^(-1)
+        prz1[i] = 1 - (1 + exp(beta01 + betaz1*z[i]))^(-1)
+        
+        conditionset[i] = ifelse(response[i]>.5,1,0)
+        muy[i] = (1-conditionset[i])*prz0[i] + conditionset[i]*prz1[i]
+      }
+      alpha0 ~ dnorm(0.0, 1.0E-4)
+      alphaz ~ dnorm(0.0, 1.0E-4)
+      
+      beta01 ~ dnorm(0.0, 1.0e-4)
+      betaz1 ~ dnorm(0.0, 1.0e-4)
+      
+      q1 = 1 - (1 + exp(alpha0 + alphaz))^(-1)
+      d1 ~ dunif(d1m, d1M)
+      q11 = min(.975, q1 + d1)
+      
+      q0 = 1 - (1 + exp(alpha0))^(-1)
+      d0 ~ dunif(d0m, d0M)
+      q01 = min(.975, q0 + d0)
+      
+      r00 = exp(beta01)*(1-q01)*q0/((1+exp(beta01))*q01*(1-q1))
+      beta00 = log(r00/(1-r00))
+      
+      rz0 = exp(beta01+betaz1)*(1-q11)*q1/((1+exp(beta01+betaz1))*q11*(1-q1))
+      betaz0 = log(rz0/(1-rz0)) - beta00     
+
+      pry11 = (  1 - (1 + exp(beta01 + betaz1))^(-1) )
+      pry01 = (  1 - (1 + exp(beta01))^(-1) )
+
+      pry10 = (  1 - (1 + exp(beta00 + betaz0))^(-1) )
+      pry00 = (  1 - (1 + exp(beta00))^(-1) )
+
+      p1 = pry11 * q1 + pry10 * (1 - q1)
+      p0 = pry01 * q0 + pry00 * (1 - q0)
+      orrat = p1*(1-p0)/((1-p1)*p0)
+      logorrat = log(orrat)
+      }
+    ", fill=TRUE)
+sink()
+
+# Here is the data example using Vague Normal Priors with JAGS within R Code
+
+# simulate some fake data 
+# set up situation: 
+
+N = 2000 # sample size
+z = rbinom(N,1,.5) # treatment indicators (random draw for treatment group, 0 and 1) 
+logor <- 0.8 # this induces an odds ratio of about 2.7 between treatment group 1 and 0
+alpha = log(7/3) # 70% response rate in Y=0, Z = 0
+beta = log(65/35) - alpha # 65% response rate in Y=0, Z = 1
+gamma = log(8/2) - alpha # 80% response rate in Y=1, Z = 0
+delta = log(85/15) - alpha - beta - gamma # 85% response rate in Y=1, Z=1
+baselodds = log(1/9) # 10% outcome rate
+ 
+d1m = .05 # lower limit for prior interval on response rate difference in treatment group z=1
+d1M = .20 # upper limit for prior interval on response rate difference in treatment group z=1
+d0m = .00 # lower limit for prior interval on response rate difference in treatment group z=0
+d0M = .15 # upper limit for prior interval on response rate difference in treatment group z=0
+
+prby = 1 - (1 + exp(baselodds + logor*z))^(-1) # probability of outcome
+y = rbinom(N,1,prby) # draw for the indicators of outcome (y=1, success)
+prbr = 1 - (1 + exp(alpha + beta*z + gamma*y + delta*y*z))^(-1) # draw for probability of being missing/observed
+r = rbinom(N,1,prbr) # if r = 1, then observed, if 0 then missing
+ymiss = y
+ymiss[r==0] = NA
+
+# Fit Joint Model for Outcome and Response Addressing Missing Outcome Data 
+# line data is a list of pieces of information for the model to analyze
+linedata = list("z" = z, "outcome" = ymiss, "response" = r, "N" = N, "d0m" = d0m, "d0M" = d0M, "d1m" = d1m, "d1M" = d1M )
+
+# NSAMPS: number of posterior samples to collect (and burn-in to allow sampler to approach posterior distribution of all parameters)
+NSAMP = 5000
+# JAGS uses a couple different functions, but jags.model is the one we will use to compute the posterior model (combine data with model assumptions)
+bmdl = jags.model("BayesPM.bug", data=linedata, n.chains=1, quiet=TRUE) # quiet = TRUE: turns off progress bars that the model will output
+update(bmdl, n.iter=NSAMP, progress.bar='none')
+samplesnnresp = coda.samples(bmdl, variable.names=c("alpha0", "alphaz", "beta01", "betaz1", "beta00", "betaz0", 
+                                                      "logorrat"), quiet=TRUE, progress.bar='none', n.iter=NSAMP)
+                                                      
+# This outputs the estimate of the log-odds ratio of the parameters from the VNP-PMM model                                                     
+estnnresp = c(summary(samplesnnresp)$statistics[7,1],as.vector(HPDinterval(samplesnnresp)[[1]][7,])) 
