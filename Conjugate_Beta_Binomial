@@ -21,7 +21,8 @@ MNAR_Beta_Binomial <- function(z, r, y, d1m, d1M, d0m, d0M, NSAMP){
                c(mean(p1), quantile(p1,probs = c(.025,.975))),
                c(mean(orest), quantile(orest,probs = c(.025,.975))),
                c(mean(lorest), quantile(lorest,probs = c(.025,.975))))
-  colnames(jntrslts) <- c("Prob.Y.1", "Prob.Y.0", "Odds.Ratio", "LogOdds.Ratio")
+  rownames(jntrslts) <- c("Prob.Y.1", "Prob.Y.0", "Odds.Ratio", "LogOdds.Ratio")
+  colnames(jntrslts) <- c("Posterior.Mean","Lower95CI", "Upper95CI")
   return(jntrslts)
   }
   
