@@ -1,0 +1,44 @@
+    model {
+      for (i in 1:N) {
+        response[i] ~ dbern(mur[i])
+        outcome[i] ~ dbern(muy[i])
+        
+        mur[i] = 1 - (1 + exp(alpha0 + alphaz * z[i]))^(-1)
+        
+        prz0[i] = 1 - (1 + exp(beta00 + betaz0*z[i]))^(-1)
+        prz1[i] = 1 - (1 + exp(beta01 + betaz1*z[i]))^(-1)
+        
+        conditionset[i] = ifelse(response[i]>.5,1,0)
+        muy[i] = (1-conditionset[i])*prz0[i] + conditionset[i]*prz1[i]
+      }
+      alpha0 ~ dnorm(0.0, 1.0E-4)
+      alphaz ~ dnorm(0.0, 1.0E-4)
+      
+      beta01 ~ dnorm(0.0, 1.0e-4)
+      betaz1 ~ dnorm(0.0, 1.0e-4)
+      
+      q1 = 1 - (1 + exp(alpha0 + alphaz))^(-1)
+      d1 ~ dunif(d1m, d1M)
+      q11 = min(.975, q1 + d1)
+      
+      q0 = 1 - (1 + exp(alpha0))^(-1)
+      d0 ~ dunif(d0m, d0M)
+      q01 = min(.975, q0 + d0)
+      
+      r00 = exp(beta01)*(1-q01)*q0/((1+exp(beta01))*q01*(1-q1))
+      beta00 = log(r00/(1-r00))
+      
+      rz0 = exp(beta01+betaz1)*(1-q11)*q1/((1+exp(beta01+betaz1))*q11*(1-q1))
+      betaz0 = log(rz0/(1-rz0)) - beta00     
+
+      pry11 = (  1 - (1 + exp(beta01 + betaz1))^(-1) )
+      pry01 = (  1 - (1 + exp(beta01))^(-1) )
+
+      pry10 = (  1 - (1 + exp(beta00 + betaz0))^(-1) )
+      pry00 = (  1 - (1 + exp(beta00))^(-1) )
+
+      p1 = pry11 * q1 + pry10 * (1 - q1)
+      p0 = pry01 * q0 + pry00 * (1 - q0)
+      orrat = p1*(1-p0)/((1-p1)*p0)
+      logorrat = log(orrat)
+      }
