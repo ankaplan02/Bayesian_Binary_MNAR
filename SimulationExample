@@ -1,17 +1,7 @@
 #install.packages('rjags') # <- run this before anything else; the VNP PMM model won't work unless you have rjags running in your R session
 library(rjags)
 # some functions to make computations easier
-
-logit = function(x){
-  lgt = ifelse(0 < x & x < 1, log(x/(1-x)), NA)
-  return(lgt)
-}
-
-# some functions to make computations easier
-ilogit = function(x){
-  ilgt = exp(x)/(1+exp(x))
-  return(ilgt)
-}
+source("Conjugate_Beta_Binomial.R") #<- or rerun the function from the Conjugate_Beta_Binomial R-file to have that function loaded in
 
 # create the Bayesian PMM Model file (stores it in working directory)
 sink("BayesPM.bug")
@@ -63,3 +53,51 @@ cat("
     ", fill=TRUE)
 sink()
 
+NSAMP = 5000 # <- number of posterior samples to collect 
+
+# simulate some fake data 
+# set up situation: 
+N = 2000 # sample size
+z = rbinom(N,1,.5) # treatment indicators (random draw for treatment group, 0 and 1) 
+logor <- 0.8 # this induces an odds ratio of about 2.23 between treatment group 1 and 0
+alpha = log(7/3) # 70% response rate in Y=0, Z = 0
+beta = log(65/35) - alpha # 65% response rate in Y=0, Z = 1
+gamma = log(8/2) - alpha # 80% response rate in Y=1, Z = 0
+delta = log(85/15) - alpha - beta - gamma # 85% response rate in Y=1, Z=1
+baselodds = log(1/9) # 10% outcome rate
+ 
+d1m = .05 # lower limit for prior interval on response rate difference in treatment group z=1
+d1M = .20 # upper limit for prior interval on response rate difference in treatment group z=1
+d0m = .00 # lower limit for prior interval on response rate difference in treatment group z=0
+d0M = .15 # upper limit for prior interval on response rate difference in treatment group z=0
+prby = 1 - (1 + exp(baselodds + logor*z))^(-1) # probability of outcome
+y = rbinom(N,1,prby) # draw for the indicators of outcome (y=1, success)
+prbr = 1 - (1 + exp(alpha + beta*z + gamma*y + delta*y*z))^(-1) # draw for probability of being missing/observed
+r = rbinom(N,1,prbr) # if r = 1, then observed, if 0 then missing
+ymiss = y
+ymiss[r==0] = NA
+# Fit Joint Model for Outcome and Response Addressing Missing Outcome Data 
+# line data is a list of pieces of information for the model to analyze
+linedata = list("z" = z, "outcome" = ymiss, "response" = r, "N" = N, "d0m" = d0m, "d0M" = d0M, "d1m" = d1m, "d1M" = d1M )
+# NSAMPS: number of posterior samples to collect (and burn-in to allow sampler to approach posterior distribution of all parameters)
+
+# JAGS uses a couple different functions, but jags.model is the one we will use to compute the posterior model (combine data with model assumptions)
+bmdl = jags.model("BayesPM.bug", data=linedata, n.chains=1, quiet=TRUE) # quiet = TRUE: turns off progress bars that the model will output
+update(bmdl, n.iter=NSAMP, progress.bar='none')
+samplesnnresp = coda.samples(bmdl, variable.names=c("alpha0", "alphaz", "beta01", "betaz1", "beta00", "betaz0", 
+                                                      "logorrat"), quiet=TRUE, progress.bar='none', n.iter=NSAMP)
+                                                      
+# This outputs the estimate of the log-odds ratio of the parameters from the VNP-PMM model                                                     
+estnnresp = c(summary(samplesnnresp)$statistics[7,1],as.vector(HPDinterval(samplesnnresp)[[1]][7,])) 
+
+
+# now run the Conjugate Beta-Binomial MNAR Outcome Model: 
+
+CBB_PMM <- MNAR_Beta_Binomial(z, r, y, d1m, d1M, d0m, d0M, NSAMP); 
+
+# Compare log-odds estimates: 
+# VNP PMM Model: 
+estnnresp
+
+# Conjugate Beta Binomial Model:
+CBB_PMM[4,]
