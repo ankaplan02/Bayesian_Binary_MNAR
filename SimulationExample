@@ -65,7 +65,7 @@ beta = log(65/35) - alpha # 65% response rate in Y=0, Z = 1
 gamma = log(8/2) - alpha # 80% response rate in Y=1, Z = 0
 delta = log(85/15) - alpha - beta - gamma # 85% response rate in Y=1, Z=1
 baselodds = log(1/9) # 10% outcome rate
- 
+
 d1m = .05 # lower limit for prior interval on response rate difference in treatment group z=1
 d1M = .20 # upper limit for prior interval on response rate difference in treatment group z=1
 d0m = .00 # lower limit for prior interval on response rate difference in treatment group z=0
@@ -82,20 +82,24 @@ linedata = list("z" = z, "outcome" = ymiss, "response" = r, "N" = N, "d0m" = d0m
 # NSAMPS: number of posterior samples to collect (and burn-in to allow sampler to approach posterior distribution of all parameters)
 
 # JAGS uses a couple different functions, but jags.model is the one we will use to compute the posterior model (combine data with model assumptions)
+# initiates model, looks for errors
 bmdl = jags.model("BayesPM.bug", data=linedata, n.chains=1, quiet=TRUE) # quiet = TRUE: turns off progress bars that the model will output
+# updates model (burn in stage)
 update(bmdl, n.iter=NSAMP, progress.bar='none')
+# collects parameter estimates for another NSAMP  samples
 samplesnnresp = coda.samples(bmdl, variable.names=c("alpha0", "alphaz", "beta01", "betaz1", "beta00", "betaz0", 
-                                                      "logorrat"), quiet=TRUE, progress.bar='none', n.iter=NSAMP)
-                                                      
-# This outputs the estimate of the log-odds ratio of the parameters from the VNP-PMM model                                                     
-estnnresp = c(summary(samplesnnresp)$statistics[7,1],as.vector(HPDinterval(samplesnnresp)[[1]][7,])) 
+                                                    "logorrat"), quiet=TRUE, progress.bar='none', n.iter=NSAMP)
 
+# This outputs the estimate of the log-odds ratio of the parameters from the VNP-PMM model 
+# along with 95% Credible interval limits (similar to confidence intervals)
+estnnresp = c(summary(samplesnnresp)$statistics[7,1],as.vector(HPDinterval(samplesnnresp)[[1]][7,])) 
+names(estnnresp) <- c("Posterior.Mean", "Lower95CI", "Upper95CI")
 
 # now run the Conjugate Beta-Binomial MNAR Outcome Model: 
 
 CBB_PMM <- MNAR_Beta_Binomial(z, r, y, d1m, d1M, d0m, d0M, NSAMP); 
 
-# Compare log-odds estimates: 
+# Compare log-odds ratio of treatment effect estimates: 
 # VNP PMM Model: 
 estnnresp
 
