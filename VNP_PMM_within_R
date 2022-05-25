@@ -1,3 +1,6 @@
+#install.packages('rjags') # <- need to install the package first so run that without the comment hashtag before moving on
+library(rjags)
+
 # this code below creates the Bayesian model and stores it in your working directory
 # the JAGS program looks for the filename "BayesPM.bug" in the working directory
 # then combines the model with the data to compute posterior summaries 
