@@ -9,7 +9,7 @@ intervals, respectively). You may copy this R function into the R console and st
 R if you have saved this file in your computer. The easier way would probably be the former and then save the function in a new R script file in a location you want. 
 
 VNP_PMM_within_R: consists of a vague-normal prior pattern mixture model that is fit in the Just Another Gibbs sampler (JAGS) program within R/R studio. You have to 
-already have the package 'rjags' installed in your R app. If you don't know how to do this in R, the following code is of help: 
+already have the package 'rjags' installed in your R app. If you don't know how to do this in R, the following code will help: 
 
 - install.packages("rjags")
 
