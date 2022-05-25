@@ -4,7 +4,7 @@ This repository consists of two functions for an easy to use and intuitive appro
 Conjugate_Beta_Binomial: consists of a fast conjugate prior method that analyzes the aggregate data of missing outcome rates and outcome success rates when the outcome is binary. 
 This method uses the Beta-Binomial structure to directly sample from the posterior distributions by incorporating the strictly prior information on the response rate bias, 
 namely, the interval limits (d0m, d0M) and (d1m, d1M) for treatment groups 0 and 1, respectively. These limits set the bounds on what a researcher/principal investigator
-would expect the response rate bias would be, instead of using just one number for it. The results are aggregated over the prior values drawn for d0 and d1 (from these 
+would expect the response rate bias to be, instead of using just one number for it. The results are aggregated over the prior values drawn for d0 and d1 (from these 
 intervals, respectively). You may copy this R function into the R console and store the function to use in an analysis or you may use the "source("...")" call from within
 R if you have saved this file in your computer. The easier way would probably be the former and then save the function in a new R script file in a location you want. 
 
